@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ex2-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      initContainers:
+      - name: wait-svc-create
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            echo "Waiting for service to be created..."
+            until nslookup nginx-svc.default.svc.cluster.local; do
+              echo "Service not found, retrying in 2 seconds..."
+              sleep 2
+            done
+            echo "Service found! Starting main container..."
+
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+
