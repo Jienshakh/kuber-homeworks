@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-exchange
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-exchange-app
+  template:
+    metadata:
+      labels:
+        app: data-exchange-app
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args: ["while true; do echo $(date) >> /tmp/shared-bb/date.txt; sleep 5; done"]
+        volumeMounts:
+        - name: shared-dir
+          mountPath: /tmp/shared-bb
+      - name: multitool
+        image: wbitt/network-multitool:3.22
+        env:
+        - name: HTTP_PORT
+          value: "8080"
+        command: ["/bin/sh", "-c"]
+        args: ["tail -f /tmp/shared-mt/date.txt"]
+        volumeMounts:
+        - name: shared-dir
+          mountPath: /tmp/shared-mt
+      volumes:
+      - name: shared-dir
+        emptyDir: {}
