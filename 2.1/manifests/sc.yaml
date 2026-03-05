@@ -1,8 +1,14 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage # ДОПОЛНИТЕ: Имя StorageClass
+provisioner: kubernetes.io/no-provisioner # ИНФОРМАЦИЯ: Нет автоматического развёртывания
+volumeBindingMode: WaitForFirstConsumer
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: local-pv # ДОПОЛНИТЕ: Имя хранилища
+  name: mypv
 spec:
   capacity:
     storage: 1Gi
@@ -10,43 +16,44 @@ spec:
   accessModes:
     - ReadWriteOnce
   persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
   hostPath:
-    path: /tmp/data # КЛЮЧЕВОЕ: Путь к директории на ноде (хосте, на котором развёрнут кластер)
+    path: /tmp/data
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: local-pvc  # ДОПОЛНИТЕ: Имя PVC
+  name: myclaim # ДОПОЛНИТЕ: Имя PVC
 spec:
-  volumeName: local-pv # ДОПОЛНИТЕ: Имя PV, к которому будет привязан PVC, должен совпадать с созданным ранее PV
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi # ДОПОЛНИТЕ: Какой объём хранилища вы хотите передать в контейнер. Должно быть меньше или равно параметру storage из PV
+      storage: 1Gi # ДОПОЛНИТЕ: Какой объем хранилища вы хотите передать в контейнер. Должно быть меньше или равно параметру storage из PV
+  storageClassName: local-storage # ДОПОЛНИТЕ: Имя StorageClass. Должно совпадать с объявленным ранее
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: data-exchange-pvc
+  name: data-exchange-sc
 spec:
   replicas: 1 # ЗАДАНИЕ: Укажите количество реплик
   selector:
     matchLabels:
-      app: pv-pvc-app # ДОПОЛНИТЕ: Метка для селектора
+      app: data-exchange-sc # ДОПОЛНИТЕ: Метка для селектора
   template:
     metadata:
       labels:
-        app: pv-pvc-app # ПОВТОРИТЕ: Метка из selector.matchLabels
+        app: data-exchange-sc # ПОВТОРИТЕ: Метка из selector.matchLabels
     spec:
       containers:
       - name: busybox # ДОПОЛНИТЕ: Имя первого контейнера
         image: busybox
-        command: ["/bin/sh", "-c"]
-        args: ["while true; do echo $(date) >> /mydir/date.txt; sleep 5; done"] # КЛЮЧЕВОЕ: Команда записи данных в файл в директории из секции volumeMounts контейнера
+        command: ["/bin/sh", "-c"] 
+        args: ["while true; do echo $(date) >> /mydir/date.txt; sleep 5; done"] # КЛЮЧЕВОЕ: Команда для чтения данных из файла, расположенного в директории, указанной в volumeMounts контейнера
         volumeMounts:
-        - name: host-dir # ДОПОЛНИТЕ: Имя монтируемого раздела. Должно совпадать с именем хранилища, объявленного на уровне пода
+        - name: mypvc # ДОПОЛНИТЕ: Имя монтируемого раздела. Должно совпадать с именем хранилища, объявленного на уровне пода
           mountPath: /mydir # КЛЮЧЕВОЕ: Путь монтирования хранилища внутри контейнера 1
       - name: multitool # ДОПОЛНИТЕ: Имя второго контейнера
         image: wbitt/network-multitool:3.22
@@ -56,9 +63,9 @@ spec:
         command: ["/bin/sh", "-c"]
         args: ["tail -f /mydir/date.txt"] # КЛЮЧЕВОЕ: Команда для чтения данных из файла, расположенного в директории, указанной в volumeMounts контейнера
         volumeMounts:
-        - name: host-dir # ДОПОЛНИТЕ: Имя монтируемого раздела. Должно совпадать с именем хранилища, объявленного на уровне пода
+        - name: mypvc # ДОПОЛНИТЕ: Имя монтируемого раздела. Должно совпадать с именем хранилища, объявленного на уровне пода
           mountPath: /mydir # КЛЮЧЕВОЕ: Путь монтирования хранилища внутри контейнера 2
       volumes:
-      - name: host-dir # ДОПОЛНИТЕ: Имя монтируемого раздела хранилища
+      - name: mypvc # ДОПОЛНИТЕ: Имя монтируемого раздела хранилища
         persistentVolumeClaim:
-          claimName: local-pvc # КЛЮЧЕВОЕ: Совпадает с именем PVC объявленного ранее
+          claimName: myclaim # КЛЮЧЕВОЕ: Совпадает с именем PVC объявленного ранее
