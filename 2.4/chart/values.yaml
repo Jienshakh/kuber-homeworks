@@ -4,10 +4,8 @@ replicaCount: 1
 # Настройки контейнеров
 containers:
   - name: nginx
-    image:
-      repository: nginx
-      tag: 1.14.2
-      pullPolicy: IfNotPresent
+    image: nginx:1.14.2
+    imagePullPolicy: IfNotPresent
     resources:
       limits:
         cpu: 500m
@@ -22,10 +20,8 @@ containers:
         mountPath: /usr/share/nginx/html/index.html
         subPath: index.html
   - name: multitool
-    image:
-      repository: wbitt/network-multitool
-      tag: 3.22
-      pullPolicy: IfNotPresent
+    image: wbitt/network-multitool:3.22
+    imagePullPolicy: IfNotPresent
     resources:
       limits:
         cpu: 500m

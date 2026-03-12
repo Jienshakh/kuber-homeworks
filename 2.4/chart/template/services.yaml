@@ -15,4 +15,4 @@ spec:
   selector:
     {{- toYaml .selector | nindent 4 }}
 {{- end }}
-{{- end }}
+{{- end }}  
