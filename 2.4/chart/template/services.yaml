@@ -1,0 +1,18 @@
+{{- range .Values.services }}
+{{- if .enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+spec:
+  type: {{ .type }}
+  ports:
+    {{- toYaml .ports | nindent 4 }}
+  selector:
+    {{- toYaml .selector | nindent 4 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,18 @@
+{{- range .Values.ingresses }}
+{{- if .enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .name }}
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
+spec:
+  tls:
+    {{- toYaml .tls | nindent 4 }}
+    secretName: {{ .tls.secretName }}
+  rules:
+    {{- toYaml .rules | nindent 4 }}
+{{- end }}
+{{- end }}
