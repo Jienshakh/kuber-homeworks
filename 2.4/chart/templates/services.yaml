@@ -4,7 +4,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ .name }}
+  name: {{ .name }}-{{ $.Release.Name }}
   labels:
     app: {{ $.Chart.Name }}
     release: {{ $.Release.Name }}
@@ -13,6 +13,8 @@ spec:
   ports:
     {{- toYaml .ports | nindent 4 }}
   selector:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
     {{- toYaml .selector | nindent 4 }}
 {{- end }}
-{{- end }}  
+{{- end }}

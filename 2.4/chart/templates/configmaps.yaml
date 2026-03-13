@@ -4,8 +4,14 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .name }}
+  name: {{ .name }}-{{ $.Release.Name }}
+  labels:
+    app: {{ $.Chart.Name }}
+    release: {{ $.Release.Name }}
 data:
-  {{- toYaml .data | nindent 4 }}
+  {{- range $key, $value := .data }}
+  {{ $key }}: |
+{{ $value | indent 4 }}
+  {{- end }}
 {{- end }}
 {{- end }}

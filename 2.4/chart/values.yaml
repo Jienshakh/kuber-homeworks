@@ -1,9 +1,11 @@
 # Общие настройки
 replicaCount: 1
 
-# Настройки контейнеров
-containers:
-  - name: nginx
+# Настройки компонентов
+components:
+  nginx:
+    enabled: true
+    name: nginx
     image: nginx:1.14.2
     imagePullPolicy: IfNotPresent
     resources:
@@ -14,12 +16,16 @@ containers:
         cpu: 250m
         memory: 256Mi
     ports:
-        - containerPort: 80
+      - containerPort: 80
+        name: http
     volumeMounts:
-      - name: web-content # ПОДКЛЮЧЕНИЕ ConfigMap
+      - name: web-content
         mountPath: /usr/share/nginx/html/index.html
         subPath: index.html
-  - name: multitool
+    
+  multitool:
+    enabled: true
+    name: multitool
     image: wbitt/network-multitool:3.22
     imagePullPolicy: IfNotPresent
     resources:
@@ -29,16 +35,21 @@ containers:
       requests:
         cpu: 250m
         memory: 256Mi
+    ports:
+      - containerPort: 8080
+        name: http
     env:
-        - name: HTTP_PORT
-          value: "8080"
+      - name: HTTP_PORT
+        value: "8080"
 
+# Общие volumes
 volumes:
   - name: web-content
     enabled: true
     configMap:
-      name: web-content # УКАЖИТЕ имя созданного ConfigMap
+      name: web-content
 
+# Services
 services:
   - name: web-app-svc
     enabled: true
@@ -50,47 +61,54 @@ services:
         name: http
     selector:
       app: web-app
+      component: nginx
 
+# ConfigMaps
 configmaps:
   - name: web-content
     enabled: true
     data:
-      # КЛЮЧЕВОЙ МОМЕНТ: index.html будет подключен как файл
       index.html: |
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Страница из ConfigMap</title> # ИЗМЕНИТЕ: Заголовок страницы
+          <title>Страница из ConfigMap</title>
         </head>
         <body>
-          <h1>Привет от Kubernetes!</h1> # ДОБАВЬТЕ: Свой контент страницы
+          <h1>Привет от Kubernetes!</h1>
+          <p>Версия: {{ .Chart.AppVersion }}</p>
+          <p>Релиз: {{ .Release.Name }}</p>
+          <p>Namespace: {{ .Release.Namespace }}</p>
         </body>
         </html>
 
+# Ingresses
 ingresses:
-  - name:  web-app-ingress-tls
+  - name: web-app-ingress
     enabled: true
+    annotations:
+      kubernetes.io/ingress.class: nginx
     tls:
-    - hosts:
-        - https-example.foo.com
-      secretName: tls-secret
+      - hosts:
+          - web-app.example.com
+        secretName: web-app-tls
     rules:
-    - host: https-example.foo.com
-      http:
-        paths:
-        - path: /
-          pathType: Prefix
-          backend:
-            service:
-              name: web-app-svc
-              port:
-                number: 80
+      - host: web-app.example.com
+        http:
+          paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: web-app-svc
+                  port:
+                    number: 80
 
+# Secrets
 secrets:
-  - name: tls-secret
+  - name: web-app-tls
     enabled: true
     type: kubernetes.io/tls
     data:
       tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURHVENDQWdHZ0F3SUJBZ0lVQVZVZ0pSSGEydzdLVWcvVFZRZXZadmdNamR3d0RRWUpLb1pJaHZjTkFRRUwKQlFBd0hERWFNQmdHQTFVRUF3d1JiWGxoY0hBdVpYaGhiWEJzWlM1amIyMHdIaGNOTWpZd016QTFNRFl4TlRNMgpXaGNOTWpjd016QTFNRFl4TlRNMldqQWNNUm93R0FZRFZRUUREQkZ0ZVdGd2NDNWxlR0Z0Y0d4bExtTnZiVENDCkFTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTFMyL0I2NUpZdUlWVjJzcFVnelZSMVUKYWZNUElKeXdxcm5vNEh0V25STk5jNE0xYnVOZjhOM3BBcHMxamYydWdaWjJ5K2ZZNUd1ZWVQSWlueEI2Y1BwOQpuOStzdVJJc1ppNHJmaDZOTHNpVGlKVDBzSDFGb2J6K2ZmMVhna1FqenY4bnF3TFBoSkpqZDdOcGs0QkNkMlNpCkxiY2ZWMnBNWnB4Q1Bhc2lyZmYrWTk2REh3ajNOenZLaC9YV05MQXU5UEdNV04vd3lvdkxzQ1MrRHRqZWhYT3cKbExBQktFZVAwNWovaFBPZjNESEhxVTRFR2poOGMzOHErY2psTXhZQUdjWVdoNWw3U3hsaEM5TDNRM2R4RkpNRgpEQkl6aUk4aERLUmJ6dHJpeURCZkllQmRmMmRoSFNlUW1oQ2ZVOFVMRjNwMm03TW82TmhWV0QrRnhDWW9GSGtDCkF3RUFBYU5UTUZFd0hRWURWUjBPQkJZRUZFODliSmwxT2JXVEpEK0VBZTR1UDFqK0xraEJNQjhHQTFVZEl3UVkKTUJhQUZFODliSmwxT2JXVEpEK0VBZTR1UDFqK0xraEJNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdEUVlKS29aSQpodmNOQVFFTEJRQURnZ0VCQUlLTkluY3RYVlpLL3h3Y25wcTJCeVVkUnFaRmplOFBMMVIyTEJlNHhzK3dzV1BZCnhiMy9KSFF3WkJaQ1QyTyswUzRYdGozdTYrR0M4V3ZhemZneFR6MWV2MmlPRDVlak1PN1V2anFjT0xFTWhRMmgKdzFtcDl5SERQeEpPeDJ1dWtuTmV6dS9IVmRuTzFHYk1GUWhGcmt6VEVZbmtuYWo0WC9IV0Q4NVNXR1Z5LzZkLwpQQWQ0WEsrLzVabmxQN3RUandPUUN3eGtSVkZzckpOMStmOG13WSszTVNaRWhVbFdQV0E5ZTVGeVpTcXU4Z2s3CmZtL3VCWnc0ZlI5bW1WSWVXTU14SUMwK2VJb0hLOGZNdE94d0h6OS85THp3V2R0b0NkcllyZXhYamdjQXprVXoKS0VPWTVxMy9lWTJ3L25talB3YkN4bmpld2FSL3pEakVTaVAwTUpvPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg== # ЗАМЕНИТЕ на base64-код сертификата (cat tls.crt | base64 -w 0)
       tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2d0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktrd2dnU2xBZ0VBQW9JQkFRQzB0dndldVNXTGlGVmQKcktWSU0xVWRWR256RHlDY3NLcTU2T0I3VnAwVFRYT0ROVzdqWC9EZDZRS2JOWTM5cm9HV2Rzdm4yT1Jybm5qeQpJcDhRZW5ENmZaL2ZyTGtTTEdZdUszNGVqUzdJazRpVTlMQjlSYUc4L24zOVY0SkVJODcvSjZzQ3o0U1NZM2V6CmFaT0FRbmRrb2kyM0gxZHFUR2FjUWoycklxMzMvbVBlZ3g4STl6Yzd5b2YxMWpTd0x2VHhqRmpmOE1xTHk3QWsKdmc3WTNvVnpzSlN3QVNoSGo5T1kvNFR6bjl3eHg2bE9CQm80ZkhOL0t2bkk1VE1XQUJuR0ZvZVplMHNaWVF2Uwo5ME4zY1JTVEJRd1NNNGlQSVF5a1c4N2E0c2d3WHlIZ1hYOW5ZUjBua0pvUW4xUEZDeGQ2ZHB1ektPallWVmcvCmhjUW1LQlI1QWdNQkFBRUNnZ0VBRmhmbDhHcWh4cktLL3pvUGRlbUNyeVNHRkhkbHZRcFRRUW5Sd2ZwM2x5ZkoKcHNHbVZpbUJWTnY3RzljYkRpZml3MjZ3Sko3dFpDUGFkUDNiRlFSbkloU3dNa1FYVnp1eTNWT25abHhMMnkxQQpUamV4Q1F1MWg1blVkTi9aTnZQcXgyS0Y0NERUM0NMSmZGZDh0enBKQnZaVjRQUzF0dkx5dTRsVXFVTEM0cFhVCmJOc1NweXNhdXdDakIwZmx0OVFOMmhwbkpTeDlIdHVPaDBjNFRVMHFnVTNLLzgvMXZqN3Zkck9ORUJ4TElKaXgKUDdVMFVGQ05OWDIyVkQ3L2IwNnBGblI1SHllR2krV0duamhtQ3dhUXUxbkc1UEFOK1NBbHA2ZkV0b3I1ZXJ5ZApaSVdFYTVrQkZlUHpkL3NxOHdTRWcvdWNHM1BHV1RUZnlYdmlCYVdBWVFLQmdRRFNxMStPZXZvN21sZHFZMmtiCnZ6TXNLZXNuUWx3dkRLRC9LeDFUcE13TW1BeFhEWW1weEhyRlJIZmdMVVZLd2lPWWRyK1NGNFFyTlR4T1IyZ3oKZUJtd0FOd2RyTlFIanFMc3dLWU5uT2t6TWV3R293TlR4Z2NwM1ljbzVYNU4rVUFQaHg5UVRaYm1ITU1LUFhpOQpwZ3pqeEplTFNBTjNLQXpxRWtRTlRXZlhzUUtCZ1FEYm1aTDZVQjlwMTZ6RkxwVFlONXhWS3ZVWTdrOEFKY1VkClQzMEtFdTZTd1Zvdk9LbCs3OUp3ZEovT1lzeC9mOFFWOExYU1U1bkRLY3pPdTdOZm1xTlR4c0tINkF3Mi91UDMKaWtzQTRaU2Mxc1BwWmZ6dmdIc0FDczBRYU51USsxQmVPRllQc0d6M3lsazNheGtDYWM2MnNhQTJwMno5S2VPOApuUHZ5NmV5RFNRS0JnUURTTHh6MVlJak1jcDZJaklwUG5xR0ZqSVVLOUZCWXVMYmdIcm54dTlmQk1Pb082SGpTCm9pOERKZDZjRVU2eTJhTDkrR3dGYStUMzN2TTkva3hlSFpNellJZzhLelNZSFowN3JMRi9uMitqSGttb0RYZkMKV3k3R2ZEamZlcWhiVHpTMHlWRmFveTdNZ3lHczA4dmxHd2g5THFVcjF6dHQ1TTJOczQrbDNmYWU0UUtCZ1FDeQpzWkJSVWZ1TjlDdXB0Skw0TXFCckNXNnlYOUUzVElUT3FnMFVzbjBpUEdZM2dNTWtBT0RjRTNxcXhlaWtZNEpiClhDbUlRZkVnUjVaYUw1RHgzZkxEekR3bHZXU2JKK1MzWFBoVmVqcWxPWG5vSmM2aDBZbkZhZ1NlTXNWZ2Y3QlIKUzBSMHRkcWw5Q21QRi80YzRaNk5PWk1taGkwQkFTSkpLL0UxSkxjSnlRS0JnUUNOTGJ5cFJPMklnUW9tQnd2NAo5MUxUOXFlV0R3emZpZERuczcvSnRXa1pUQ0VtWktYZ0srelNWQVA1RHlYeUt5Y1lsdTJUbWUyQVBEMUlDYkEvCjkxTkNlUnFwd3BJWnA4YlJvUVVVWGQxb0xGUkNDNFVCWGpSOUxSS242eEJ0WDJLYitTeXFVcVVMc0lYU3RFR0IKcFc5aTk3aDNEcEdIaDFtNUZwNm9MeEhZL2c9PQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg== # ЗАМЕНИТЕ на base64-код ключа (cat tls.key | base64 -w 0)
-
